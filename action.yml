@@ -1,0 +1,54 @@
+name: 'GDSmeller - GDScript Static Analysis'
+description: 'Static analysis tool for GDScript that detects code smells and common issues'
+author: 'dgorshkov'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to the GDScript files or directory to analyze'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to configuration file'
+    required: false
+    default: ''
+  fail-on-warning:
+    description: 'Fail if warnings are found'
+    required: false
+    default: 'false'
+  output-format:
+    description: 'Output format (text, json, github)'
+    required: false
+    default: 'github'
+
+outputs:
+  issues-count:
+    description: 'Number of issues found'
+  warnings-count:
+    description: 'Number of warnings found'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/requirements.txt
+    
+    - name: Run GDSmeller
+      shell: bash
+      run: |
+        python ${{ github.action_path }}/gdsmeller/main.py \
+          --path "${{ inputs.path }}" \
+          --output-format "${{ inputs.output-format }}" \
+          ${{ inputs.config != '' && format('--config "{0}"', inputs.config) || '' }} \
+          ${{ inputs.fail-on-warning == 'true' && '--fail-on-warning' || '' }}
