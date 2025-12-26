@@ -41,16 +41,7 @@ runs:
     - name: Run GDSmeller
       shell: bash
       run: |
-        set -e
-        
-        # Run GDSmeller with the requested output format (preserve existing behavior)
-        python ${{ github.action_path }}/gdsmeller/main.py \
-          --path "${{ inputs.path }}" \
-          --output-format "${{ inputs.output-format }}" \
-          ${{ inputs.config != '' && format('--config "{0}"', inputs.config) || '' }} \
-          ${{ inputs.fail-on-warning == 'true' && '--fail-on-warning' || '' }}
-        
-        # Run GDSmeller again in JSON mode to extract machine-readable counts
+        # Run GDSmeller in JSON mode first to extract machine-readable counts
         GDSMELLER_JSON_OUTPUT="$(
           python ${{ github.action_path }}/gdsmeller/main.py \
             --path "${{ inputs.path }}" \
@@ -84,3 +75,10 @@ EOF
           echo "issues-count=$ISSUES_COUNT"
           echo "warnings-count=$WARNINGS_COUNT"
         } >> "$GITHUB_OUTPUT"
+        
+        # Run GDSmeller with the requested output format (may fail if issues found)
+        python ${{ github.action_path }}/gdsmeller/main.py \
+          --path "${{ inputs.path }}" \
+          --output-format "${{ inputs.output-format }}" \
+          ${{ inputs.config != '' && format('--config "{0}"', inputs.config) || '' }} \
+          ${{ inputs.fail-on-warning == 'true' && '--fail-on-warning' || '' }}

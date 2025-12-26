@@ -16,7 +16,7 @@ def load_config(config_path: Optional[str]) -> Dict:
         return {}
     
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
         print(f"Warning: Could not load config file {config_path}: {e}")

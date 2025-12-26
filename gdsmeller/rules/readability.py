@@ -151,10 +151,6 @@ class MissingFunctionDocstringRule(Rule):
             
             if match:
                 func_name = match.group(1)
-                # Skip private functions (starting with _)
-                if func_name.startswith('_'):
-                    i += 1
-                    continue
                 
                 # Check if next non-empty line is a comment
                 has_docstring = False
