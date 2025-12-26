@@ -1,0 +1,38 @@
+# Example GitHub Actions workflow for using GDSmeller
+# This is a template - copy to your own repository and adjust as needed
+
+name: GDScript Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  gdsmeller:
+    name: Analyze GDScript Code
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Run GDSmeller
+        uses: dgorshkov/gdsmeller@main
+        with:
+          # Path to analyze (defaults to current directory)
+          path: '.'
+          
+          # Output format: text, json, or github
+          # github format creates annotations in the PR
+          output-format: 'github'
+          
+          # Fail the workflow if warnings are found
+          fail-on-warning: 'false'
+          
+          # Optional: Path to custom config file
+          # config: '.gdsmeller.json'
