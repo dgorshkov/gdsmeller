@@ -1,0 +1,17 @@
+; Sample game project configuration for testing gdsmeller
+; This is a minimal Godot 4.x project file
+
+[configuration]
+
+config_version=5
+
+[application]
+
+config/name="Space Shooter Sample"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.2")
+
+[display]
+
+window/size/viewport_width=800
+window/size/viewport_height=600
