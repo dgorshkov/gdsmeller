@@ -53,7 +53,6 @@ class HardcodedPasswordRule(Rule):
                     if password_value:
                         normalized_password = password_value.strip().lower()
                         placeholder_passwords = {
-                            '',
                             'password',
                             'your_password',
                             'your_password_here',

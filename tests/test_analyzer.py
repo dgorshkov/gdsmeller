@@ -24,7 +24,7 @@ class TestGDScriptAnalyzer(unittest.TestCase):
     def create_temp_file(self, content: str, filename: str = "test.gd") -> str:
         """Create a temporary GDScript file for testing."""
         file_path = os.path.join(self.temp_dir, filename)
-        with open(file_path, 'w') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
         return file_path
     
