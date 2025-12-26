@@ -3,10 +3,8 @@
 import unittest
 import tempfile
 import os
-from pathlib import Path
 
 from gdsmeller.analyzer import GDScriptAnalyzer
-from gdsmeller.rules.base import Severity, RuleCategory
 
 
 class TestGDScriptAnalyzer(unittest.TestCase):
@@ -158,7 +156,7 @@ func my_function():
         
         output = self.analyzer.format_violations(violations, 'text')
         self.assertIsInstance(output, str)
-        self.assertTrue(len(output) > 0)
+        self.assertGreater(len(output), 0)
     
     def test_format_json(self):
         """Test JSON formatting."""

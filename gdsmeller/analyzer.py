@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 import json
 
-from .rules.base import Rule, RuleViolation, Severity, RuleCategory
+from .rules.base import Rule, RuleViolation, Severity
 from .rules import readability, security, performance
 
 
@@ -70,7 +70,8 @@ class GDScriptAnalyzer:
                     violations.extend(rule.check(file_path, content))
         
         except Exception as e:
-            print(f"Error analyzing {file_path}: {e}")
+            import sys
+            print(f"Error analyzing {file_path}: {e}", file=sys.stderr)
         
         return violations
     

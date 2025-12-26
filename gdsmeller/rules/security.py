@@ -50,14 +50,28 @@ class HardcodedPasswordRule(Rule):
                 if match:
                     password_value = match.group(1)
                     # Skip if it's empty or looks like a placeholder
-                    if password_value and password_value.lower() not in ['', 'password', 'your_password', 'your_password_here', 'changeme']:
-                        violations.append(self.create_violation(
-                            file_path=file_path,
-                            line_number=i,
-                            message="Hardcoded password detected. Use environment variables or secure storage instead",
-                            code_snippet=line.strip()[:50]
-                        ))
-                        break
+                    if password_value:
+                        normalized_password = password_value.strip().lower()
+                        placeholder_passwords = {
+                            '',
+                            'password',
+                            'your_password',
+                            'your_password_here',
+                            'changeme',
+                            'test',
+                            'admin',
+                            '12345',
+                            '123456',
+                            'qwerty',
+                        }
+                        if normalized_password not in placeholder_passwords:
+                            violations.append(self.create_violation(
+                                file_path=file_path,
+                                line_number=i,
+                                message="Hardcoded password detected. Use environment variables or secure storage instead",
+                                code_snippet=line.strip()[:50]
+                            ))
+                            break
         
         return violations
 
@@ -91,8 +105,8 @@ class UnsafeEvalRule(Rule):
         
         # Patterns to detect potentially unsafe eval/execute
         unsafe_patterns = [
-            re.compile(r'Expression\.parse\s*\(', re.IGNORECASE),
-            re.compile(r'\.execute\s*\(', re.IGNORECASE),
+            re.compile(r'Expression\.parse\s*\('),
+            re.compile(r'\bExpression\s*\.\s*execute\s*\('),
         ]
         
         for i, line in enumerate(lines, 1):
@@ -141,8 +155,9 @@ class SQLInjectionRiskRule(Rule):
         lines = content.split('\n')
         
         # Pattern to detect SQL string concatenation
+        # More specific to avoid false positives with arithmetic but catch variable concatenation
         sql_concat_pattern = re.compile(
-            r'(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE).*(%s|%d|\+\s*\w+)',
+            r'(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE).*?(%s|%d|\+\s*["\']|\+\s+\w+)',
             re.IGNORECASE
         )
         
@@ -176,7 +191,7 @@ class InsecureRandomRule(Rule):
     
     @property
     def description(self) -> str:
-        return "Use Crypto.random_bytes() for security-critical randomness, not randi()/randf()"
+        return "Use Crypto.generate_random_bytes() for security-critical randomness, not randi()/randf()"
     
     @property
     def severity(self) -> Severity:
@@ -207,7 +222,7 @@ class InsecureRandomRule(Rule):
                     violations.append(self.create_violation(
                         file_path=file_path,
                         line_number=i,
-                        message="Using insecure random function for security-critical purpose. Use Crypto.random_bytes() instead",
+                        message="Using insecure random function for security-critical purpose. Use Crypto.generate_random_bytes() instead",
                         code_snippet=line.strip()[:50]
                     ))
         

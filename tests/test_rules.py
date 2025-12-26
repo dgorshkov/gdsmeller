@@ -136,6 +136,21 @@ class TestPerformanceRules(unittest.TestCase):
         violations = rule.check("test.gd", content)
         self.assertEqual(len(violations), 1)
     
+    def test_process_loop_exits_correctly(self):
+        """Test that ProcessInLoopRule correctly handles code after loop."""
+        rule = ProcessInLoopRule()
+        content = """func _process(delta):
+\tfor i in range(10):
+\t\tvar node = get_node("Player")
+\t# Code after loop - should not trigger
+\tvar other = get_node("Other")
+"""
+        
+        violations = rule.check("test.gd", content)
+        # Should only find one violation (inside loop), not the one after
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].line_number, 3)
+    
     def test_string_concatenation_in_loop(self):
         """Test StringConcatenationInLoopRule."""
         rule = StringConcatenationInLoopRule()
@@ -147,6 +162,22 @@ class TestPerformanceRules(unittest.TestCase):
         
         violations = rule.check("test.gd", content)
         self.assertEqual(len(violations), 1)
+    
+    def test_string_concatenation_after_loop(self):
+        """Test that StringConcatenationInLoopRule correctly handles code after loop."""
+        rule = StringConcatenationInLoopRule()
+        content = """func build_string():
+\tvar result = ""
+\tfor i in range(10):
+\t\tresult += "test"
+\t# Code after loop - should not trigger
+\tresult += "suffix"
+"""
+        
+        violations = rule.check("test.gd", content)
+        # Should only find one violation (inside loop), not the one after
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].line_number, 4)
     
     def test_unused_signal_connection(self):
         """Test UnusedSignalConnectionRule."""
@@ -170,6 +201,22 @@ func _exit_tree():
         
         violations = rule.check("test.gd", content)
         self.assertEqual(len(violations), 0)
+    
+    def test_signal_partial_disconnect(self):
+        """Test that only matching signals are considered disconnected."""
+        rule = UnusedSignalConnectionRule()
+        content = """func _ready():
+\tsignal_obj.connect("signal1", self, "_on_signal1")
+\tsignal_obj.connect("signal2", self, "_on_signal2")
+
+func _exit_tree():
+\tsignal_obj.disconnect("signal1", self, "_on_signal1")
+"""
+        
+        violations = rule.check("test.gd", content)
+        # Should find violation for signal2 only
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0].line_number, 3)
     
     def test_get_node_in_process(self):
         """Test GetNodeInProcessRule."""

@@ -4,7 +4,6 @@
 import argparse
 import sys
 import json
-from pathlib import Path
 from typing import Optional, Dict
 
 from .analyzer import GDScriptAnalyzer

@@ -193,7 +193,7 @@ func get_user(user_id):
 **Category:** Security
 
 **Description:**
-Functions like `randi()` and `randf()` are not cryptographically secure. For security-critical purposes (tokens, keys, passwords), use `Crypto.random_bytes()`.
+Functions like `randi()` and `randf()` are not cryptographically secure. For security-critical purposes (tokens, keys, passwords), use `Crypto.generate_random_bytes()`.
 
 **Good Example:**
 ```gdscript

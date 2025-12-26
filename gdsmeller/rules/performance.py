@@ -34,33 +34,40 @@ class ProcessInLoopRule(Rule):
         lines = content.split('\n')
         
         in_process_func = False
-        loop_depth = 0
+        loop_stack = []  # Stack to track loop indentation levels
         process_line = 0
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             
             # Check if we're entering a process function
-            if re.match(r'func\s+(_process|_physics_process)\s*\(', stripped, re.IGNORECASE):
+            if re.match(r'func\s+(_process|_physics_process)\s*\(', stripped):
                 in_process_func = True
                 process_line = i
-                loop_depth = 0
+                loop_stack = []
             
             # Check if we're exiting the function
-            if in_process_func and re.match(r'func\s+\w+\s*\(', stripped, re.IGNORECASE) and i != process_line:
+            if in_process_func and re.match(r'func\s+\w+\s*\(', stripped) and i != process_line:
                 in_process_func = False
+                loop_stack = []
             
-            if in_process_func:
+            if in_process_func and stripped:
+                # Get current line indentation
+                indent = len(line) - len(line.lstrip())
+                
+                # Remove loops from stack that we've exited (based on indentation)
+                loop_stack = [loop_indent for loop_indent in loop_stack if loop_indent < indent]
+                
                 # Check for loop keywords
-                if re.match(r'(for|while)\s+', stripped, re.IGNORECASE):
-                    loop_depth += 1
+                if re.match(r'(for|while)\s+', stripped):
+                    loop_stack.append(indent)
                 
                 # Check for expensive operations in loops
-                if loop_depth > 0:
+                if loop_stack:
                     # Check for expensive operations
                     expensive_patterns = [
                         r'get_node\s*\(',
-                        r'\$',  # $ node reference
+                        r'\$[A-Za-z_]',  # $ node reference (more specific)
                         r'find_node\s*\(',
                         r'get_tree\s*\(',
                         r'instance\s*\(',
@@ -106,28 +113,35 @@ class StringConcatenationInLoopRule(Rule):
         violations = []
         lines = content.split('\n')
         
-        in_loop = False
+        in_loop_stack = []  # Stack to track loop indentation levels
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             
-            # Check for loop keywords
-            if re.match(r'(for|while)\s+', stripped, re.IGNORECASE):
-                in_loop = True
-            
-            # Reset loop flag on function definition
-            if re.match(r'func\s+\w+\s*\(', stripped, re.IGNORECASE):
-                in_loop = False
-            
-            if in_loop:
-                # Check for string concatenation using +=
-                if re.search(r'\w+\s*\+=\s*["\']', line):
-                    violations.append(self.create_violation(
-                        file_path=file_path,
-                        line_number=i,
-                        message="String concatenation in loop detected. Use Array and join() for better performance",
-                        code_snippet=line.strip()[:50]
-                    ))
+            if stripped:
+                # Get current line indentation
+                indent = len(line) - len(line.lstrip())
+                
+                # Remove loops from stack that we've exited (based on indentation)
+                in_loop_stack = [loop_indent for loop_indent in in_loop_stack if loop_indent < indent]
+                
+                # Check for loop keywords
+                if re.match(r'(for|while)\s+', stripped):
+                    in_loop_stack.append(indent)
+                
+                # Reset loop stack on function definition
+                if re.match(r'func\s+\w+\s*\(', stripped):
+                    in_loop_stack = []
+                
+                if in_loop_stack:
+                    # Check for string concatenation using +=
+                    if re.search(r'\w+\s*\+=\s*["\']', line):
+                        violations.append(self.create_violation(
+                            file_path=file_path,
+                            line_number=i,
+                            message="String concatenation in loop detected. Use Array and join() for better performance",
+                            code_snippet=line.strip()[:50]
+                        ))
         
         return violations
 
@@ -159,34 +173,44 @@ class UnusedSignalConnectionRule(Rule):
         violations = []
         lines = content.split('\n')
         
-        has_connect = False
-        has_disconnect = False
-        has_exit_tree = False
-        connect_lines = []
+        # Track individual signal connections and disconnections.
+        # Key format: "<target_expression>::<signal_literal>"
+        connect_pattern = re.compile(
+            r'(?P<target>\w+(?:\.\w+)*)\s*\.connect\(\s*(?P<signal>"[^"]*"|\'[^\']*\')'
+        )
+        disconnect_pattern = re.compile(
+            r'(?P<target>\w+(?:\.\w+)*)\s*\.disconnect\(\s*(?P<signal>"[^"]*"|\'[^\']*\')'
+        )
+        
+        connected_signals = {}  # key -> first line number where connected
+        disconnected_signals = set()  # set of keys that are disconnected
         
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             
-            # Check for connect calls
-            if '.connect(' in line and not stripped.startswith('#'):
-                has_connect = True
-                connect_lines.append(i)
+            # Ignore comments entirely
+            if stripped.startswith('#'):
+                continue
             
-            # Check for disconnect calls
-            if '.disconnect(' in line and not stripped.startswith('#'):
-                has_disconnect = True
+            # Find all connect calls on this line
+            for match in connect_pattern.finditer(line):
+                key = f"{match.group('target')}::{match.group('signal')}"
+                # Only store the first occurrence line for reporting
+                if key not in connected_signals:
+                    connected_signals[key] = i
             
-            # Check for _exit_tree function
-            if re.match(r'func\s+_exit_tree\s*\(', stripped, re.IGNORECASE):
-                has_exit_tree = True
+            # Find all disconnect calls on this line
+            for match in disconnect_pattern.finditer(line):
+                key = f"{match.group('target')}::{match.group('signal')}"
+                disconnected_signals.add(key)
         
-        # If we have connects but no disconnects and no _exit_tree, warn
-        if has_connect and not has_disconnect and not has_exit_tree:
-            for line_num in connect_lines[:1]:  # Report only first occurrence
+        # Report any signals that are connected but never disconnected
+        for key, line_num in connected_signals.items():
+            if key not in disconnected_signals:
                 violations.append(self.create_violation(
                     file_path=file_path,
                     line_number=line_num,
-                    message="Signal connected but no disconnect() found. Consider disconnecting in _exit_tree() to prevent memory leaks",
+                    message="Signal connected but no matching disconnect() found. Consider disconnecting in _exit_tree() to prevent memory leaks",
                     code_snippet=lines[line_num - 1].strip()[:50]
                 ))
         
@@ -227,17 +251,17 @@ class GetNodeInProcessRule(Rule):
             stripped = line.strip()
             
             # Check if we're entering a process function
-            if re.match(r'func\s+(_process|_physics_process)\s*\(', stripped, re.IGNORECASE):
+            if re.match(r'func\s+(_process|_physics_process)\s*\(', stripped):
                 in_process_func = True
                 process_line = i
             
             # Check if we're exiting the function
-            if in_process_func and re.match(r'func\s+\w+\s*\(', stripped, re.IGNORECASE) and i != process_line:
+            if in_process_func and re.match(r'func\s+\w+\s*\(', stripped) and i != process_line:
                 in_process_func = False
             
             if in_process_func:
-                # Check for get_node calls or $ syntax
-                if 'get_node(' in line or (re.search(r'\$\w+', line) and 'signal' not in line.lower()):
+                # Check for get_node calls or $ syntax (but not in signal context)
+                if 'get_node(' in line or (re.search(r'\$[A-Za-z_]', line) and 'signal' not in line.lower()):
                     violations.append(self.create_violation(
                         file_path=file_path,
                         line_number=i,

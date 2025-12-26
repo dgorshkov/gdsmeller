@@ -38,17 +38,49 @@ runs:
       with:
         python-version: '3.x'
     
-    - name: Install dependencies
-      shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r ${{ github.action_path }}/requirements.txt
-    
     - name: Run GDSmeller
       shell: bash
       run: |
+        set -e
+        
+        # Run GDSmeller with the requested output format (preserve existing behavior)
         python ${{ github.action_path }}/gdsmeller/main.py \
           --path "${{ inputs.path }}" \
           --output-format "${{ inputs.output-format }}" \
           ${{ inputs.config != '' && format('--config "{0}"', inputs.config) || '' }} \
           ${{ inputs.fail-on-warning == 'true' && '--fail-on-warning' || '' }}
+        
+        # Run GDSmeller again in JSON mode to extract machine-readable counts
+        GDSMELLER_JSON_OUTPUT="$(
+          python ${{ github.action_path }}/gdsmeller/main.py \
+            --path "${{ inputs.path }}" \
+            --output-format "json" \
+            ${{ inputs.config != '' && format('--config "{0}"', inputs.config) || '' }} \
+            2>/dev/null || echo '{}'
+        )"
+        
+        # Parse issues and warnings counts from the JSON output using Python stdlib
+        COUNTS="$(
+          python - << 'EOF'
+import json
+import os
+import sys
+try:
+    data = json.loads(os.environ.get("GDSMELLER_JSON_OUTPUT", "{}"))
+    summary = data.get("summary", {})
+    by_severity = summary.get("by_severity", {})
+    issues = summary.get("total", 0)
+    warnings = by_severity.get("warning", 0)
+    print(f"{issues} {warnings}")
+except:
+    print("0 0")
+EOF
+        )"
+        
+        ISSUES_COUNT="$(echo "$COUNTS" | awk '{print $1}')"
+        WARNINGS_COUNT="$(echo "$COUNTS" | awk '{print $2}')"
+        
+        {
+          echo "issues-count=$ISSUES_COUNT"
+          echo "warnings-count=$WARNINGS_COUNT"
+        } >> "$GITHUB_OUTPUT"

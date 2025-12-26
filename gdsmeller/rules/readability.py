@@ -81,7 +81,7 @@ class MissingClassDocstringRule(Rule):
         violations = []
         lines = content.split('\n')
         
-        class_pattern = re.compile(r'^\s*class\s+(\w+)', re.IGNORECASE)
+        class_pattern = re.compile(r'^\s*class\s+(\w+)')
         comment_pattern = re.compile(r'^\s*#')
         
         i = 0
@@ -141,7 +141,7 @@ class MissingFunctionDocstringRule(Rule):
         lines = content.split('\n')
         
         # Match public functions (not starting with _)
-        func_pattern = re.compile(r'^\s*func\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(', re.IGNORECASE)
+        func_pattern = re.compile(r'^\s*func\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(')
         comment_pattern = re.compile(r'^\s*#')
         
         i = 0
