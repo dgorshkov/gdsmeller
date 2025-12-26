@@ -63,7 +63,7 @@ try:
     issues = summary.get("total", 0)
     warnings = by_severity.get("warning", 0)
     print(f"{issues} {warnings}")
-except:
+except Exception:
     print("0 0")
 EOF
         )"
